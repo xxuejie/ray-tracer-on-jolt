@@ -57,7 +57,7 @@ $(MUSL_TARGET):
 			BASE_CFLAGS="$(MUSL_CFLAGS)" \
 			./ckb/build.sh
 
-BUILTINS_CFLAGS := --target=riscv64  -march=rv64imc_zba_zbb_zbc_zbs -mabi=lp64 -mcmodel=medany
+BUILTINS_CFLAGS := --target=riscv64  -march=rv64imac -mabi=lp64 -mcmodel=medany
 BUILTINS_CFLAGS += -nostdinc -I $(MUSL)/release/include -I $(LIBCXX)/release/include
 BUILTINS_CFLAGS += -Os -g
 BUILTINS_CFLAGS += -fdata-sections -ffunction-sections -fno-builtin -fvisibility=hidden -fomit-frame-pointer
