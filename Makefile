@@ -29,6 +29,14 @@ LDFLAGS := --gc-sections --static \
 # Show all linker errors
 LDFLAGS += --error-limit=0
 
+# Default build: a small image that completes in reasonable time/memory.
+# Use `make FULL_RES=true` for the full-resolution scene (very heavy — needs a big machine).
+ifeq ($(FULL_RES),true)
+RT_DEFS ?=
+else
+RT_DEFS ?= -DRT_SMALL_SCENE -DRT_CENTER_SAMPLE -DRT_IMAGE_WIDTH=80 -DRT_SAMPLES=1 -DRT_DEPTH=5
+endif
+
 CXXFLAGS := \
   -Wall -Werror \
   -std=c++20 \
@@ -37,15 +45,35 @@ CXXFLAGS := \
   -nostdinc -nostdinc++ \
   -isystem $(LIBCXX)/release/include/c++/v1 \
   -isystem $(MUSL)/release/include \
-  $(BASE_CFLAGS)
+  $(BASE_CFLAGS) $(RT_DEFS)
 ifneq (true,$(DEBUG))
 	CXXFLAGS += -DNO_DEBUG_INFO
 endif
 
-build: $(MUSL_TARGET) $(BUILTINS_TARGET) $(LIBCXX_TARGET)
+all: run-jolt
+
+build-jolt: $(MUSL_TARGET) $(BUILTINS_TARGET) $(LIBCXX_TARGET)
 	$(CLANGXX) $(CXXFLAGS) tracer_src/main.cc -c -o build/raytracer.o
 	$(LD) $(LDFLAGS) build/raytracer.o -o build/raytracer
 	$(OBJDUMP) -d build/raytracer > build/raytracer_dump.txt
+
+# Native reference build (host clang++, no JOLT) for generating image.ppm.
+# -ffp-contract=off matches jolt's soft-float (no FMA) so the two are bit-identical
+# given deterministic sampling (RT_CENTER_SAMPLE) and no random spheres (RT_SMALL_SCENE).
+NATIVE_CXXFLAGS := -std=c++20 -O2 -ffp-contract=off $(RT_DEFS)
+
+build-native:
+	$(CLANGXX) $(NATIVE_CXXFLAGS) tracer_src/main.cc -o build/raytracer_native
+
+run-native: build-native
+	./build/raytracer_native > image.ppm
+	@echo "wrote image.ppm ($$(wc -c < image.ppm) bytes)"
+
+# Runs the binary from the project root so ./build/raytracer and image_jolt.ppm
+# resolve consistently with run-native (cargo run would CWD into runner/).
+run-jolt: build-jolt
+	cd runner && cargo build --release
+	./runner/target/release/jolt-vm-runner
 
 MUSL_CFLAGS := $(BASE_CFLAGS) -DPAGE_SIZE=4096
 # ifneq (true,$(DEBUG))
@@ -94,4 +122,4 @@ clean:
 	cd $(BUILTINS) && make clean
 	cd $(LIBCXX) && rm -rf release build llvm_src
 
-.PHONY: build clean
+.PHONY: all build-jolt build-native run-native run-jolt clean

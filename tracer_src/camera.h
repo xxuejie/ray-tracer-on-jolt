@@ -155,7 +155,11 @@ class camera {
 
     vec3 sample_square() const {
         // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit square.
+#ifdef RT_CENTER_SAMPLE
+        return vec3(0, 0, 0);
+#else
         return vec3(random_double() - 0.5, random_double() - 0.5, 0);
+#endif
     }
 
     vec3 sample_disk(double radius) const {
