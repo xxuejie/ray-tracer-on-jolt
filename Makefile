@@ -29,10 +29,15 @@ LDFLAGS := --gc-sections --static \
 # Show all linker errors
 LDFLAGS += --error-limit=0
 
-# Default build: a small image that completes in reasonable time/memory.
-# Use `make FULL_RES=true` for the full-resolution scene (very heavy — needs a big machine).
-ifeq ($(FULL_RES),true)
+# Image presets:
+#   make IMAGE=full   -> original 1200x675, 10 samples, depth 20, all spheres (very heavy)
+#   make IMAGE=small  -> 80x45, fits execution on a ~24GB box (default)
+#   make IMAGE=tiny   -> 16x16, small enough to PROVE on a ~24GB box
+# By default small image is used.
+ifeq ($(IMAGE),full)
 RT_DEFS ?=
+else ifeq ($(IMAGE),tiny)
+RT_DEFS ?= -DRT_SMALL_SCENE -DRT_CENTER_SAMPLE -DRT_IMAGE_WIDTH=25 -DRT_SAMPLES=1 -DRT_DEPTH=3
 else
 RT_DEFS ?= -DRT_SMALL_SCENE -DRT_CENTER_SAMPLE -DRT_IMAGE_WIDTH=80 -DRT_SAMPLES=1 -DRT_DEPTH=5
 endif
@@ -74,6 +79,19 @@ run-native: build-native
 run-jolt: build-jolt
 	cd runner && cargo build --release
 	./runner/target/release/jolt-vm-runner
+
+# Prove + verify. Builds the guest (via build-jolt) then runs the prover.
+# Proving is RAM-heavy (~2GB per million cycles): IMAGE=tiny is the safe default.
+# A non-tiny image warns and prompts; FORCE=true skips the prompt.
+prove-jolt: build-jolt
+	@if [ "$(IMAGE)" != "tiny" ] && [ "$(FORCE)" != "true" ]; then \
+		echo "WARNING: proving IMAGE=$(or $(IMAGE),small) is heavy and may OOM on a 24GB box."; \
+		echo "         use 'make prove-jolt IMAGE=tiny' for a safe proof, or FORCE=true to proceed."; \
+		read -r -p "Proceed with IMAGE=$(or $(IMAGE),small)? [y/N] " ans; \
+		case "$$ans" in y|Y) ;; *) echo "aborted"; exit 1 ;; esac; \
+	fi
+	cd runner && cargo build --release
+	./runner/target/release/jolt-vm-runner prove
 
 MUSL_CFLAGS := $(BASE_CFLAGS) -DPAGE_SIZE=4096
 # ifneq (true,$(DEBUG))
@@ -122,4 +140,4 @@ clean:
 	cd $(BUILTINS) && make clean
 	cd $(LIBCXX) && rm -rf release build llvm_src
 
-.PHONY: all build-jolt build-native run-native run-jolt clean
+.PHONY: all build-jolt build-native run-native run-jolt prove-jolt clean
