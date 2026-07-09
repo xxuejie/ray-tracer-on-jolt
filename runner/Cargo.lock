@@ -8,11 +8,11 @@ version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59317f77929f0e679d39364702289274de2f0f0b22cbf50b2b8cff2169a0b27a"
 dependencies = [
- "cpp_demangle",
+ "cpp_demangle 0.5.1",
  "fallible-iterator",
  "gimli",
  "memmap2",
- "object",
+ "object 0.39.1",
  "rustc-demangle",
  "smallvec",
  "typed-arena",
@@ -527,6 +527,15 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
+
+[[package]]
+name = "cpp_demangle"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2bb79cb74d735044c972aae58ed0aaa9a837e85b01106a54c39e42e97f62253"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "cpp_demangle"
@@ -1112,6 +1121,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jolt-guest-profiler"
+version = "0.1.0"
+dependencies = [
+ "cpp_demangle 0.4.5",
+ "object 0.36.7",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "jolt-inlines-keccak256"
 version = "0.1.0"
 source = "git+https://github.com/a16z/jolt#c36a2eacab14c2e42462b8aba91edf5c09814ef1"
@@ -1214,7 +1232,7 @@ dependencies = [
  "ark-serialize 0.5.0",
  "common",
  "jolt-riscv",
- "object",
+ "object 0.39.1",
  "serde",
  "thiserror 2.0.18",
 ]
@@ -1408,6 +1426,7 @@ dependencies = [
 name = "jolt-vm-runner"
 version = "0.1.0"
 dependencies = [
+ "jolt-guest-profiler",
  "jolt-sdk",
  "tracing",
  "tracing-subscriber",
@@ -1646,6 +1665,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "object"
+version = "0.36.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -2307,7 +2335,7 @@ dependencies = [
  "jolt-platform",
  "jolt-program",
  "jolt-riscv",
- "object",
+ "object 0.39.1",
  "paste",
  "postcard",
  "serde",

@@ -15,6 +15,7 @@ lto = "fat"
 jolt-sdk = { git = "https://github.com/a16z/jolt", features = ["host"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
+jolt-guest-profiler = { path = "../profiler" }
 
 [patch.crates-io]
 ark-ff = { git = "https://github.com/a16z/arkworks-algebra", branch = "dev/twist-shout" }

@@ -40,6 +40,24 @@ pub fn main() {
     std::fs::write("image_jolt.ppm", &io.outputs[..end]).expect("failed to write image");
     println!("Saved image_jolt.ppm ({} bytes)", end);
 
+    // Optional guest execution profile → CKB folded-stack text. View with:
+    //   inferno-flamegraph folded.txt > flame.svg
+    //   ckb-vm-pprof-converter --input-file folded.txt --output-file prof.pprof
+    //   ckb-vm-samply-converter --input folded.txt --output prof.json && samply load prof.json
+    if let Ok(prof_path) = std::env::var("PROFILE_FILE") {
+        let t = Instant::now();
+        let mut f = std::fs::File::create(&prof_path).expect("create profile file");
+        let pcs = trace
+            .iter()
+            .map(|c| c.instruction().source_instruction().row().address as u64);
+        jolt_guest_profiler::write_folded(&elf, pcs, &mut f).expect("write folded profile");
+        println!(
+            "Wrote folded profile to {} ({:.2}s)",
+            prof_path,
+            t.elapsed().as_secs_f64()
+        );
+    }
+
     if prove {
         prove_and_verify(&program, trace.len(), max_output_size);
     }

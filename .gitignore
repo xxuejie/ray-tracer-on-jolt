@@ -1,4 +1,8 @@
 /*.ppm
+/*.txt
+/*.svg
+/*.prof
+/*.json
 /tracer
 /build
 /refs
