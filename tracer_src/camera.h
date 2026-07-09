@@ -14,6 +14,45 @@
 #include "hittable.h"
 #include "material.h"
 
+#ifdef JOLT
+#include "jolt/jolt_vm.h"
+#include <cstring>
+#include <ostream>
+#include <streambuf>
+#include <string>
+
+struct jolt_out_buf : std::streambuf {
+    std::string _buf;
+
+    std::streamsize xsputn(const char *s, std::streamsize n) override {
+        _buf.append(s, n);
+        return n;
+    }
+
+    int_type overflow(int_type c) override {
+        if (c != traits_type::eof()) _buf.push_back(static_cast<char>(c));
+        return c;
+    }
+
+    int sync() override {
+        if (!_buf.empty())
+            std::memcpy(reinterpret_cast<void *>(JOLT_VM_OUTPUT_START), _buf.data(), _buf.size());
+        return 0;
+    }
+};
+
+struct jolt_ostream : std::ostream {
+    jolt_out_buf _b;
+    jolt_ostream() : std::ostream(&_b) {}
+};
+
+inline jolt_ostream jout;
+#define OUT jout
+#else
+#include <iostream>
+#define OUT std::cout
+#endif
+
 
 class camera {
   public:
@@ -33,7 +72,7 @@ class camera {
     void render(const hittable& world) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        OUT << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
@@ -43,11 +82,12 @@ class camera {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, max_depth, world);
                 }
-                write_color(std::cout, pixel_samples_scale * pixel_color);
+                write_color(OUT, pixel_samples_scale * pixel_color);
             }
         }
 
         std::clog << "\rDone.                 \n";
+        OUT.flush();
     }
 
   private:

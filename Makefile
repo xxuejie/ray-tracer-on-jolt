@@ -15,7 +15,8 @@ DEBUG := false
 
 BASE_CFLAGS := --target=riscv64 -march=rv64imac \
 	-Os -g -DJOLT -mcmodel=medany \
-	-fdata-sections -ffunction-sections -fvisibility=hidden
+	-fdata-sections -ffunction-sections -fvisibility=hidden \
+	-DJOLT_VM_MAX_OUTPUT_SIZE=16777216
 
 LDFLAGS := --gc-sections --static \
   --nostdlib --sysroot $(MUSL)/release \
@@ -42,9 +43,9 @@ ifneq (true,$(DEBUG))
 endif
 
 build: $(MUSL_TARGET) $(BUILTINS_TARGET) $(LIBCXX_TARGET)
-	$(CLANGXX) $(CXXFLAGS) minimal.cpp -c -o build/minimal.o
-	$(LD) $(LDFLAGS) build/minimal.o -o build/minimal
-	$(OBJDUMP) -d build/minimal > build/minimal_dump.txt
+	$(CLANGXX) $(CXXFLAGS) tracer_src/main.cc -c -o build/raytracer.o
+	$(LD) $(LDFLAGS) build/raytracer.o -o build/raytracer
+	$(OBJDUMP) -d build/raytracer > build/raytracer_dump.txt
 
 MUSL_CFLAGS := $(BASE_CFLAGS) -DPAGE_SIZE=4096
 # ifneq (true,$(DEBUG))
