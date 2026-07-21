@@ -12,6 +12,7 @@ LIBCXX := $(realpath deps/libcxx)
 LIBCXX_TARGET := $(LIBCXX)/release/lib/libc++.a
 
 DEBUG := false
+USE_FLOAT := false
 
 BASE_CFLAGS := --target=riscv64 -march=rv64imac \
 	-Os -g -DJOLT -mcmodel=medany \
@@ -54,13 +55,16 @@ CXXFLAGS := \
 ifneq (true,$(DEBUG))
 	CXXFLAGS += -DNO_DEBUG_INFO
 endif
+ifeq (true,$(USE_FLOAT))
+	CXXFLAGS += -DRT_USE_FLOAT -Wdouble-promotion
+endif
 
 all: run-jolt
 
 build-jolt: $(MUSL_TARGET) $(BUILTINS_TARGET) $(LIBCXX_TARGET)
 	$(CLANGXX) $(CXXFLAGS) tracer_src/main.cc -c -o build/raytracer.o
 	$(LD) $(LDFLAGS) build/raytracer.o -o build/raytracer
-	$(OBJDUMP) -d build/raytracer > build/raytracer_dump.txt
+	$(OBJDUMP) -S build/raytracer --demangle > build/raytracer_dump.txt 2> /dev/null
 
 # Native reference build (host clang++, no JOLT) for generating image.ppm.
 # -ffp-contract=off matches jolt's soft-float (no FMA) so the two are bit-identical
