@@ -18,9 +18,13 @@ class hit_record {
   public:
     point3 p;
     vec3 normal;
-    shared_ptr<material> mat;
+    const material* mat;
     double t;
     bool front_face;
+
+    /* Default construct with uninitialized vec3 members to avoid memset.
+     * mat is set by sphere::hit before use, t/front_face likewise. */
+    hit_record() : p(vec3::uninitialized{}), normal(vec3::uninitialized{}) {}
 
     void set_face_normal(const ray& r, const vec3& outward_normal) {
         // Sets the hit record normal vector.

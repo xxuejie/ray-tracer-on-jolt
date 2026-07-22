@@ -18,6 +18,12 @@ class vec3 {
     vec3() : e{0,0,0} {}
     vec3(double e0, double e1, double e2) : e{e0, e1, e2} {}
 
+    /* Construct without initialization. Use when all fields will be written
+     * before being read (e.g., hit_record, ray output). Avoids the memset
+     * that the default constructor triggers. */
+    struct uninitialized {};
+    vec3(uninitialized) {}
+
     double x() const { return e[0]; }
     double y() const { return e[1]; }
     double z() const { return e[2]; }

@@ -16,7 +16,7 @@
 
 class ray {
   public:
-    ray() {}
+    ray() : orig(vec3::uninitialized{}), dir(vec3::uninitialized{}) {}
 
     ray(const point3& origin, const vec3& direction) : orig(origin), dir(direction) {}
 

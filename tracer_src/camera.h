@@ -17,37 +17,64 @@
 #ifdef JOLT
 #include "jolt/jolt_vm.h"
 #include <cstring>
-#include <ostream>
-#include <streambuf>
-#include <string>
 
-struct jolt_out_buf : std::streambuf {
-    std::string _buf;
+/* Direct-to-memory writer: bypasses ostream, streambuf, and std::string
+ * entirely. Writes PPM output straight to JOLT_VM_OUTPUT_START. */
+struct jolt_writer {
+    uint8_t* ptr;
 
-    std::streamsize xsputn(const char *s, std::streamsize n) override {
-        _buf.append(s, n);
-        return n;
+    jolt_writer() : ptr(reinterpret_cast<uint8_t*>(JOLT_VM_OUTPUT_START)) {}
+
+    void write(const char* data, uint32_t len) {
+        std::memcpy(ptr, data, len);
+        ptr += len;
     }
 
-    int_type overflow(int_type c) override {
-        if (c != traits_type::eof()) _buf.push_back(static_cast<char>(c));
-        return c;
+    void write_char(char c) { *ptr++ = c; }
+
+    void write_int(int v) {
+        if (v >= 100) {
+            *ptr++ = '0' + v / 100;
+            *ptr++ = '0' + (v / 10) % 10;
+            *ptr++ = '0' + v % 10;
+        } else if (v >= 10) {
+            *ptr++ = '0' + v / 10;
+            *ptr++ = '0' + v % 10;
+        } else {
+            *ptr++ = '0' + v;
+        }
     }
 
-    int sync() override {
-        if (!_buf.empty())
-            std::memcpy(reinterpret_cast<void *>(JOLT_VM_OUTPUT_START), _buf.data(), _buf.size());
-        return 0;
+    uint32_t size() const {
+        return static_cast<uint32_t>(ptr - reinterpret_cast<uint8_t*>(JOLT_VM_OUTPUT_START));
     }
+
+    void flush() {}
 };
 
-struct jolt_ostream : std::ostream {
-    jolt_out_buf _b;
-    jolt_ostream() : std::ostream(&_b) {}
-};
-
-inline jolt_ostream jout;
+inline jolt_writer jout;
 #define OUT jout
+
+/* JOLT-specific write_color: writes directly to the raw buffer,
+ * bypassing ostream/streambuf/string entirely. */
+inline void write_color(jolt_writer& out, const color& pixel_color) {
+    auto r = pixel_color.x();
+    auto g = pixel_color.y();
+    auto b = pixel_color.z();
+
+    r = linear_to_gamma(r);
+    g = linear_to_gamma(g);
+    b = linear_to_gamma(b);
+
+    static const interval intensity(REAL_C(0.000), REAL_C(0.999));
+    int rbyte = int(256 * intensity.clamp(r));
+    int gbyte = int(256 * intensity.clamp(g));
+    int bbyte = int(256 * intensity.clamp(b));
+
+    out.write_int(rbyte); out.write_char(' ');
+    out.write_int(gbyte); out.write_char(' ');
+    out.write_int(bbyte); out.write_char('\n');
+}
 #else
 #include <iostream>
 #define OUT std::cout
@@ -72,10 +99,16 @@ class camera {
     void render(const hittable& world) {
         initialize();
 
-        OUT << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        // PPM header: "P3\n<width> <height>\n255\n"
+        OUT.write_char('P'); OUT.write_char('3'); OUT.write_char('\n');
+        OUT.write_int(image_width); OUT.write_char(' ');
+        OUT.write_int(image_height); OUT.write_char('\n');
+        OUT.write_char('2'); OUT.write_char('5'); OUT.write_char('5'); OUT.write_char('\n');
 
         for (int j = 0; j < image_height; j++) {
+#ifndef NO_DEBUG_INFO
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+#endif
             for (int i = 0; i < image_width; i++) {
                 color pixel_color(0,0,0);
                 for (int sample = 0; sample < samples_per_pixel; sample++) {
@@ -86,7 +119,9 @@ class camera {
             }
         }
 
+#ifndef NO_DEBUG_INFO
         std::clog << "\rDone.                 \n";
+#endif
         OUT.flush();
     }
 
@@ -105,7 +140,7 @@ class camera {
         image_height = int(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
 
-        pixel_samples_scale = 1.0 / samples_per_pixel;
+        pixel_samples_scale = REAL_C(1.0) / samples_per_pixel;
 
         center = lookfrom;
 
@@ -130,7 +165,7 @@ class camera {
 
         // Calculate the location of the upper left pixel.
         auto viewport_upper_left = center - (focus_dist * w) - viewport_u/2 - viewport_v/2;
-        pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+        pixel00_loc = viewport_upper_left + REAL_C(0.5) * (pixel_delta_u + pixel_delta_v);
 
         // Calculate the camera defocus disk basis vectors.
         auto defocus_radius = focus_dist * std::tan(degrees_to_radians(defocus_angle / 2));
@@ -180,9 +215,9 @@ class camera {
 
         hit_record rec;
 
-        if (world.hit(r, interval(0.001, infinity), rec)) {
+        if (world.hit(r, interval(REAL_C(0.001), infinity), rec)) {
             ray scattered;
-            color attenuation;
+            color attenuation(vec3::uninitialized{});
             if (rec.mat->scatter(r, rec, attenuation, scattered))
                 return attenuation * ray_color(scattered, depth-1, world);
             return color(0,0,0);
